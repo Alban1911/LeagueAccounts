@@ -1,20 +1,20 @@
 # LeagueAccounts
 
-Welcome to **LeagueAccounts**, a tool designed to simplify managing multiple **League of Legends** accounts in one place. With secure password storage using Windows' built-in credential system and convenient features like automatic credential entry and rank fetching, LeagueAccounts makes handling multiple accounts seamless and efficient.
+**LeagueAccounts** helps you manage multiple **League of Legends** accounts from one Windows app, with secure password storage, quick login helpers, and automatic rank updates.
+
+![LeagueAccounts screenshot](assets/screenshot.png)
 
 ## Features
 
-- **Quick Account Switching**: Easily switch between multiple League of Legends accounts without the hassle of logging in and out repeatedly.
-- **Secure Password Storage**: Safely store your account credentials using Windows' native password storage system.
-- **Auto Credential Entry**: Use `CTRL+SHIFT+V` to automatically input your login credentials into the Riot Client.
-- **Automatic Rank and Level Fetching**: Retrieve and display your account ranks and levels effortlessly, keeping you updated on your progress.
-- **User-Friendly Interface**: Intuitive design for managing accounts with minimal effort.
+- **Quick Account Switching**: Keep all accounts in one list.
+- **Secure Password Storage**: Store credentials with Windows Credential Manager.
+- **Auto Credential Entry**: Use `CTRL+SHIFT+V` to fill Riot Client login fields.
+- **Automatic Rank Updates**: Fetch rank, last-season ranks, and level.
+- **Import / Export**: Move account data between installs.
 
 ## Installation
 
-Download the latest release from GitHub:
-
-[Download Latest Release](https://github.com/FlorentTariolle/LeagueAccounts/releases/latest)
+[Download the latest release](https://github.com/FlorentTariolle/LeagueAccounts/releases/latest).
 
 ## Building from Source
 
