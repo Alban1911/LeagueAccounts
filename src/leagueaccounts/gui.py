@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import tkinter.font as tkfont
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import customtkinter as ctk
 
 # Set CustomTkinter appearance
@@ -625,40 +626,68 @@ class LeagueAccountManagerGUI:
             pyperclip.copy(password)
 
     def refresh_all_ranks(self):
+        def apply_rank_info(acc, rank_info):
+            acc.tier = rank_info.get('tier', 'Unranked')
+            acc.division = rank_info.get('division', '')
+            acc.lp = rank_info.get('lp', '')
+            acc.level = rank_info.get('level', '')
+            acc.reached_last_season = rank_info.get('reached_last_season', 'N/A')
+            acc.finished_last_season = rank_info.get('finished_last_season', 'N/A')
+
+        def update_row(item, acc):
+            values = self.tree.item(item, 'values')
+            if not values:
+                return
+
+            new_values = list(values)
+            new_values[3] = acc.level or '...'
+            new_values[4] = acc.tier or '...'
+            new_values[5] = acc.division or '...'
+            new_values[6] = acc.lp or '...'
+            new_values[7] = acc.reached_last_season or 'N/A'
+            new_values[8] = acc.finished_last_season or 'N/A'
+            self.tree.item(item, values=new_values, tags=())
+
+        row_by_account = {}
+        for item in self.tree.get_children():
+            values = self.tree.item(item, 'values')
+            if values and len(values) >= 3:
+                row_by_account[(values[0], values[2])] = item
+
+        self.tree.tag_configure('refreshing', background='#4a4a4a')
+        for acc in self.manager.accounts:
+            item = row_by_account.get((acc.account_id, acc.region_display))
+            if item:
+                self.tree.item(item, tags=('refreshing',))
+
         def worker():
-            for idx, acc in enumerate(self.manager.accounts):
-                # Find the row in the tree corresponding to this account
-                for item in self.tree.get_children():
-                    values = self.tree.item(item, 'values')
-                    if values and values[0] == acc.account_id and values[2] == acc.region_display:
-                        # Highlight the row in grey
-                        self.root.after(0, lambda item=item: self.tree.item(item, tags=('refreshing',)))
-                        self.root.after(0, lambda: self.tree.tag_configure('refreshing', background='#4a4a4a'))
-                        break
-                # Fetch new rank info
-                rank_info = self.manager.rank_fetcher.fetch_rank(acc)
-                acc.tier = rank_info.get('tier', 'Unranked')
-                acc.division = rank_info.get('division', '')
-                acc.lp = rank_info.get('lp', '')
-                acc.level = rank_info.get('level', '')
-                acc.reached_last_season = rank_info.get('reached_last_season', 'N/A')
-                acc.finished_last_season = rank_info.get('finished_last_season', 'N/A')
-                self.manager.save_accounts()
-                # Update the row in the tree with new rank info
-                for item in self.tree.get_children():
-                    values = self.tree.item(item, 'values')
-                    if values and values[0] == acc.account_id and values[2] == acc.region_display:
-                        new_values = list(values)
-                        new_values[3] = acc.level or '...'
-                        new_values[4] = acc.tier or '...'
-                        new_values[5] = acc.division or '...'
-                        new_values[6] = acc.lp or '...'
-                        new_values[7] = acc.reached_last_season or 'N/A'
-                        new_values[8] = acc.finished_last_season or 'N/A'
-                        self.root.after(0, lambda item=item, vals=new_values: self.tree.item(item, values=vals))
-                        # Remove highlight after update
-                        self.root.after(0, lambda item=item: self.tree.item(item, tags=()))
-                        break
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = {
+                    executor.submit(self.manager.rank_fetcher.fetch_rank, acc): acc
+                    for acc in self.manager.accounts
+                }
+
+                for future in as_completed(futures):
+                    acc = futures[future]
+                    try:
+                        rank_info = future.result()
+                    except Exception:
+                        rank_info = {
+                            'tier': 'Error',
+                            'division': '',
+                            'lp': '',
+                            'level': '',
+                            'reached_last_season': '...',
+                            'finished_last_season': '...'
+                        }
+
+                    apply_rank_info(acc, rank_info)
+                    item = row_by_account.get((acc.account_id, acc.region_display))
+                    if item:
+                        self.root.after(0, lambda item=item, acc=acc: update_row(item, acc))
+
+            self.manager.save_accounts()
+
         threading.Thread(target=worker, daemon=True).start()
 
     def delete_selected_account(self):

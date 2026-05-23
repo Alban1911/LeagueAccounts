@@ -1,6 +1,7 @@
 from . import windows_credential as cred
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from .utils import get_accounts_file, rank_sort_key
 from .models import Account
@@ -83,14 +84,35 @@ class AccountManager:
         self.save_accounts()
 
     def refresh_ranks(self):
-        for acc in self.accounts:
-            rank_info = self.rank_fetcher.fetch_rank(acc)
+        def apply_rank_info(acc, rank_info):
             acc.tier = rank_info.get('tier', 'Unranked')
             acc.division = rank_info.get('division', '')
             acc.lp = rank_info.get('lp', '')
             acc.level = rank_info.get('level', '')
             acc.reached_last_season = rank_info.get('reached_last_season', 'N/A')
             acc.finished_last_season = rank_info.get('finished_last_season', 'N/A')
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {
+                executor.submit(self.rank_fetcher.fetch_rank, acc): acc
+                for acc in self.accounts
+            }
+
+            for future in as_completed(futures):
+                acc = futures[future]
+                try:
+                    rank_info = future.result()
+                except Exception:
+                    rank_info = {
+                        'tier': 'Error',
+                        'division': '',
+                        'lp': '',
+                        'level': '',
+                        'reached_last_season': '...',
+                        'finished_last_season': '...'
+                    }
+                apply_rank_info(acc, rank_info)
+
         self.accounts.sort(key=lambda a: rank_sort_key(a.tier, a.division, a.lp))
         self.save_accounts()
 
